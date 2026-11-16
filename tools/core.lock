@@ -1,0 +1,7 @@
+# Reviewed pins for Delta Chat core 2.69.0. The build fails if a download does not match.
+# sha256 values were computed from the downloaded files and equal PyPI's published digests.
+SERVER_URL=https://files.pythonhosted.org/packages/50/66/7b6428ac9a4a73bfc3199a26477b2fb3d0e60d78485c1d0d0b2b755a04f8/deltachat_rpc_server-2.69.0-py3-none-android_21_arm64_v8a.whl
+SERVER_SHA256=8951349d8805e276ac574f7588a9a23759c33bc208443eafc48ab03361bf0c54
+CLIENT_FILE=deltachat_rpc_client-2.69.0-py3-none-any.whl
+CLIENT_SHA256=c9fe9d66822660b70251aa93f0f35acfe4c2000b83b6e150c2b0d66ce5e46dbd
+SOURCE_URL=https://github.com/chatmail/core/tree/v2.69.0

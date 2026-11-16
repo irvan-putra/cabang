@@ -1,0 +1,2 @@
+deltachat-rpc-client==2.69.0 \
+    --hash=sha256:c9fe9d66822660b70251aa93f0f35acfe4c2000b83b6e150c2b0d66ce5e46dbd

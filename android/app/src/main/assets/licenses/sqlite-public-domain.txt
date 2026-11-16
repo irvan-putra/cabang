@@ -1,0 +1,2 @@
+SQLite is in the public domain. Source: https://sqlite.org/copyright.html
+(This file is a pointer written for Cabang, not a license text: SQLite has no license text to carry.)

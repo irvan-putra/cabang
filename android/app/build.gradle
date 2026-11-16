@@ -1,0 +1,32 @@
+plugins { id 'com.android.application'; id 'com.chaquo.python' }
+android {
+    testOptions { unitTests { includeAndroidResources = true } }
+    namespace 'com.vanipy.cabang'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'com.vanipy.cabang'
+        minSdk 26
+        targetSdk 34
+        versionCode 9
+        versionName '0.3.0'
+        // Delta Chat core is bundled for arm64 only (Galaxy A24). tools/fetch_core.sh puts it in jniLibs.
+        ndk { abiFilters 'arm64-v8a' }
+    }
+    applicationVariants.all { v -> v.outputs.all { outputFileName = "cabang-${v.versionName}-${v.buildType.name}.apk" } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    packagingOptions { jniLibs { useLegacyPackaging = true } }
+}
+chaquopy {
+    defaultConfig {
+        pip {
+            // Same version as the bundled core. Unpinned transitive deps are not used.
+            install '-r', 'requirements.txt'
+        }
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.11.1'
+    testImplementation 'androidx.test:core:1.5.0'
+}

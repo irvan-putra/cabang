@@ -1,0 +1,195 @@
+{
+ "note": "Synthetic demo data shaped like Delta Chat JSON-RPC message objects. No real chat.",
+ "messages": [
+  {
+   "id": 1,
+   "timestamp": 1000,
+   "sender": "Ana",
+   "text": "Topic A: which map style for the app?",
+   "mid": "demo-1"
+  },
+  {
+   "id": 2,
+   "timestamp": 1060,
+   "sender": "Budi",
+   "text": "Topic B: release is Friday, any blockers?",
+   "parentId": 1,
+   "mid": "demo-2"
+  },
+  {
+   "id": 3,
+   "timestamp": 1120,
+   "sender": "Cici",
+   "text": "A: I prefer the light one.",
+   "quote": {
+    "kind": "WithMessage",
+    "messageId": 1,
+    "text": "Topic A"
+   },
+   "parentId": 1,
+   "mid": "demo-3"
+  },
+  {
+   "id": 4,
+   "timestamp": 1180,
+   "sender": "Dodi",
+   "text": "B: none from me.",
+   "quote": {
+    "kind": "WithMessage",
+    "messageId": 2,
+    "text": "Topic B"
+   },
+   "parentId": 2,
+   "mid": "demo-4"
+  },
+  {
+   "id": 5,
+   "timestamp": 1240,
+   "sender": "Ana",
+   "text": "A: light is hard to read outdoors though.",
+   "quote": {
+    "kind": "WithMessage",
+    "messageId": 3,
+    "text": "I prefer"
+   },
+   "parentId": 3,
+   "mid": "demo-5"
+  },
+  {
+   "id": 6,
+   "timestamp": 1300,
+   "sender": "Cici",
+   "text": "Fair. High contrast then?",
+   "quote": {
+    "kind": "WithMessage",
+    "messageId": 5,
+    "text": "light is hard"
+   },
+   "parentId": 5,
+   "mid": "demo-6"
+  },
+  {
+   "id": 7,
+   "timestamp": 1360,
+   "sender": "Budi",
+   "text": "Yes, and test on the phone in sunlight.",
+   "quote": {
+    "kind": "WithMessage",
+    "messageId": 6,
+    "text": "High contrast"
+   },
+   "parentId": 6,
+   "mid": "demo-7"
+  },
+  {
+   "id": 8,
+   "timestamp": 1420,
+   "sender": "Ana",
+   "text": "Agreed. Will do Thursday.",
+   "quote": {
+    "kind": "WithMessage",
+    "messageId": 7,
+    "text": "Yes, and test"
+   },
+   "parentId": 7,
+   "mid": "demo-8"
+  },
+  {
+   "id": 9,
+   "timestamp": 1480,
+   "sender": "Dodi",
+   "text": "Dark mode too?",
+   "quote": {
+    "kind": "WithMessage",
+    "messageId": 8,
+    "text": "Agreed"
+   },
+   "parentId": 8,
+   "mid": "demo-9"
+  },
+  {
+   "id": 10,
+   "timestamp": 1540,
+   "sender": "Cici",
+   "text": "Yes, follow the system setting.",
+   "quote": {
+    "kind": "WithMessage",
+    "messageId": 9,
+    "text": "Dark mode"
+   },
+   "parentId": 9,
+   "mid": "demo-10"
+  },
+  {
+   "id": 11,
+   "timestamp": 1600,
+   "sender": "Ana",
+   "text": "Okay, noted. Moving on.",
+   "quote": {
+    "kind": "WithMessage",
+    "messageId": 10,
+    "text": "Yes, follow"
+   },
+   "parentId": 10,
+   "mid": "demo-11"
+  },
+  {
+   "id": 12,
+   "timestamp": 1660,
+   "sender": "Budi",
+   "text": "Unrelated: lunch on Saturday?",
+   "parentId": 11,
+   "mid": "demo-12"
+  },
+  {
+   "id": 13,
+   "timestamp": 1720,
+   "sender": "Cici",
+   "text": "Sure, 12:30.",
+   "parentId": 12,
+   "mid": "demo-13"
+  },
+  {
+   "id": 14,
+   "timestamp": 1780,
+   "sender": "Dodi",
+   "text": "Count me in.",
+   "parentId": 13,
+   "mid": "demo-14"
+  },
+  {
+   "id": 15,
+   "timestamp": 1840,
+   "sender": "Ana",
+   "text": "B: one blocker, signing key not set up.",
+   "quote": {
+    "kind": "WithMessage",
+    "messageId": 4,
+    "text": "none from me"
+   },
+   "parentId": 13,
+   "mid": "demo-15"
+  },
+  {
+   "id": 16,
+   "timestamp": 1900,
+   "sender": "Budi",
+   "text": "I can set it up tonight.",
+   "quote": {
+    "kind": "WithMessage",
+    "messageId": 15,
+    "text": "one blocker"
+   },
+   "parentId": 15,
+   "mid": "demo-16"
+  },
+  {
+   "id": 17,
+   "timestamp": 1960,
+   "sender": "Dodi",
+   "text": "Sent with no quote; Delta Chat still filled in a parent header.",
+   "parentId": 2,
+   "mid": "demo-17"
+  }
+ ]
+}

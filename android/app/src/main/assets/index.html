@@ -1,0 +1,213 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only; Copyright (C) 2026 irvan-putra -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; img-src 'none'; frame-src 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cabang - threaded view for Delta Chat</title>
+<style>
+:root{--bg:#f6f6ef;--fg:#222;--mute:#828282;--bar:#ff6600;--card:#fff}
+@media(prefers-color-scheme:dark){:root{--bg:#161616;--fg:#e6e6e6;--mute:#8a8a8a;--card:#1f1f1f}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,sans-serif}
+header{position:sticky;top:0;background:var(--card);border-bottom:1px solid #8884;padding:8px 10px;z-index:2}
+header h1{font-size:16px;margin:0 0 6px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+button,select,label.btn{font:inherit;font-size:13px;padding:4px 8px;border:1px solid #8886;border-radius:6px;background:transparent;color:inherit}
+#stats{font-size:12px;color:var(--mute);margin-top:4px}
+main{padding:6px 8px 60px}
+#panel{margin:6px 8px;padding:8px;border:1px solid #8886;border-radius:8px;background:var(--card);font-size:13px}
+#panel h3{font-size:13px;margin:8px 0 4px} #panel .row{padding:3px 0;border-top:1px solid #8883}
+.chip{display:inline-block;font-size:11px;border:1px solid #8886;border-radius:10px;padding:0 6px;margin:2px 4px 0 0;cursor:pointer;color:var(--mute)}
+.banner{background:#ff660022;padding:4px 8px;font-size:13px}
+.crumb{font-size:13px;color:var(--mute);margin:6px 0}
+.node{display:flex}
+.guide{flex:0 0 14px;cursor:pointer;display:flex;justify-content:center;margin-right:2px}
+.guide i{width:2px;background:var(--c);opacity:.55;height:100%}
+.guide.dash i{background:none;border-left:2px dashed var(--c)}
+.guide:hover i{opacity:1}
+.body{flex:1;min-width:0}
+.head{font-size:12px;color:var(--mute);padding-top:6px}
+.head b{color:var(--fg)} .head a{color:var(--mute);cursor:pointer;margin-left:6px;text-decoration:underline}
+.text{white-space:pre-wrap;overflow-wrap:anywhere;padding:2px 0 4px}
+.tag{font-size:10px;border:1px solid #8886;border-radius:4px;padding:0 4px;margin-left:4px}
+.collapsed .text,.collapsed .kids{display:none}
+.more{font-size:13px;color:var(--mute);padding:4px 0 6px 6px}
+.deep{font-size:12px;color:var(--mute)}
+.empty{padding:30px 6px;color:var(--mute)}
+</style></head><body>
+<header><h1>Cabang <span style="font-weight:400;color:var(--mute)">threaded view for Delta Chat</span></h1>
+<div class="bar">
+<label class="btn">Open export (stays on this device)<input id="file" type="file" accept=".json" hidden></label>
+<button id="demo">Demo data</button>
+<select id="chatsel" hidden></select>
+<label><input type="checkbox" id="group"> Guess branches (dashed)</label>
+<button id="topics">Topics &amp; links</button><button id="lic">Licenses</button><button id="bk" hidden>Back up</button><button id="mk" hidden>Create Cabang identity</button><button id="all">Collapse all</button><button id="exp">Expand all</button>
+</div><div id="stats"></div></header>
+<section id="panel" hidden></section>
+<main id="main"></main>
+<script src="threads.js"></script>
+<script src="overlay.js"></script>
+<script src="sample.js"></script>
+<script src="notices.js"></script>
+<script>
+var MAXDEPTH=4, COLORS=["#ff6600","#2a9d8f","#7b61ff","#d62f6b","#3a86ff","#8d6e00"];
+var ov=CabangOverlay.create(), ovKey="demo", curKey=null, linkFrom=null, host=window.CabangHost||null, snap=null, cur=null, data=null, tree=null, focusId=null, collapsed={};
+var $=function(i){return document.getElementById(i)};
+function fmt(ts){var d=new Date(ts*1000);return isNaN(d)?"":d.toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}
+// Links are saved only under a stable scope ("demo" or a hash of the account identity). Imported files and
+// accounts without an identity keep links in memory only, so links can never attach to another account.
+function ovLoad(){ov=CabangOverlay.create();linkFrom=null;if(!ovKey)return;try{ov=CabangOverlay.load(localStorage.getItem("cabang.ov."+ovKey)||"")}catch(e){}}
+function ovSave(){if(!ovKey)return;try{localStorage.setItem("cabang.ov."+ovKey,CabangOverlay.serialize(ov))}catch(e){}}
+function short(k){var n=tree.byPid[k]||tree.byId[k];return n?(n.msg.sender||"?")+": "+(n.msg.text||"").slice(0,40):"(message not loaded)"}
+function ovChange(){ovSave();render();renderPanel()}
+function rebuild(){
+  if(!data){return}
+  tree=Cabang.build(data.messages,{group:$("group").checked});if(rebuild.fresh){ovLoad();rebuild.fresh=false}
+  var s=Cabang.stats(tree);
+  $("stats").textContent=s.total+" messages: "+s.quote+" real replies (quoted)"+
+   (s.transport+s.guess?", "+(s.transport+s.guess)+" guessed":"")+", "+s.root+" top-level"+
+   (s.missingQuote?", "+s.missingQuote+" quote(s) of messages not in this export":"");
+  render();renderPanel();
+}
+function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
+function nodeEl(n,depth,vis){
+  var w=el("div","node"+(collapsed[n.id]?" collapsed":""));
+  if(depth>0){
+    var g=el("div","guide"+(n.link==="quote"?"":" dash"));g.style.setProperty("--c",COLORS[(depth-1)%COLORS.length]);
+    g.appendChild(el("i"));g.title="Tap to collapse this branch";
+    g.onclick=function(){collapsed[n.id]=true;render()};w.appendChild(g);
+  }
+  var b=el("div","body");var h=el("div","head");
+  var tog=el("a",null,collapsed[n.id]?"[+"+(n.size-1)+"]":"[-]");
+  tog.onclick=function(){collapsed[n.id]=!collapsed[n.id];render()};
+  var nm=el("b",null,n.msg.sender||"?");h.appendChild(nm);h.appendChild(document.createTextNode(" "+fmt(n.msg.timestamp)));
+  if(n.link!=="quote"&&n.link!=="root")h.appendChild(el("span","tag","guess"));
+  if(n.missingQuote)h.appendChild(el("span","tag","replies to a message not in export"));
+  h.appendChild(tog);
+  if(n.children.length&&depth>=MAXDEPTH-1){var f=el("a",null,"open thread >");f.onclick=function(){focusId=n.id;render();scrollTo(0,0)};h.appendChild(f)}
+  if(cur&&cur.configured&&host){var rp=el("a",null,"reply");rp.onclick=function(){
+      if(b.querySelector("textarea"))return;var ta=el("textarea");ta.rows=2;ta.style.width="100%";
+      var go=el("button",null,"Send reply");go.setAttribute("data-send","1");go.onclick=function(){go.disabled=true;host.sendReply(cur.account,cur.chat,n.msg.id,ta.value)};
+      b.insertBefore(ta,kidsPlaceholder);b.insertBefore(go,kidsPlaceholder)};h.appendChild(rp)}
+  var np=CabangOverlay.pid(n);
+  if(np){var lk=el("a",null,linkFrom?(linkFrom===np?"(linking...)":"link here"):"link");lk.onclick=function(){
+      if(!linkFrom){linkFrom=np;render();return}
+      if(linkFrom!==np)CabangOverlay.addLink(ov,linkFrom,np,"manual");linkFrom=null;ovChange()};h.appendChild(lk)}
+  b.appendChild(h);
+  ov.links.forEach(function(l){if(!np||l.status!=="active"||(l.a!==np&&l.b!==np))return;var o2=l.a===np?l.b:l.a;
+    var ch=el("span","chip","\u2194 "+short(o2));ch.title="Open the linked message";ch.onclick=function(){var t2=tree.byPid[o2];if(t2){focusId=t2.id;render();scrollTo(0,0)}};b.appendChild(ch)});
+  var kidsPlaceholder=null;
+  var t=el("div","text",n.msg.text||"");b.appendChild(t);
+  var kids=el("div","kids");kidsPlaceholder=kids;
+  if(collapsed[n.id]&&n.children.length){}
+  else if(depth>=MAXDEPTH&&n.children.length){
+    // deep branch: stop indenting, offer to open it as its own view
+    var m=el("div","more","Thread continues: "+(n.size-1)+" more. ");var f2=el("a",null,"open thread >");
+    f2.onclick=function(){focusId=n.id;render();scrollTo(0,0)};f2.style.cursor="pointer";f2.style.textDecoration="underline";
+    m.appendChild(f2);kids.appendChild(m);
+  } else n.children.forEach(function(c){kids.appendChild(nodeEl(c,depth+1))});
+  b.appendChild(kids);w.appendChild(b);return w;
+}
+function render(){
+  var m=$("main");m.innerHTML="";
+  if(linkFrom&&tree){var bn=el("div","banner","Linking from "+short(linkFrom)+". Tap \"link here\" on another message. ");var cc=el("a",null,"cancel");cc.style.cursor="pointer";cc.onclick=function(){linkFrom=null;render()};bn.appendChild(cc);m.appendChild(bn)}
+  if(!tree){m.appendChild(el("div","empty","Open a Cabang export file, or try the demo data. Nothing is uploaded."));return}
+  var roots=tree.roots;
+  if(focusId&&tree.byId[focusId]){
+    var n=tree.byId[focusId],path=[];for(var a=n.parent;a;a=a.parent)path.unshift(a);
+    var c=el("div","crumb");var back=el("a",null,"< all topics");back.style.cursor="pointer";back.style.textDecoration="underline";
+    back.onclick=function(){focusId=null;render()};c.appendChild(back);
+    if(path.length){var up=el("a",null," | parent");up.style.cursor="pointer";up.onclick=function(){focusId=n.parent.id;render()};c.appendChild(up);}
+    m.appendChild(c);
+    if(n.parent){var pp=el("div","crumb","In reply to "+(n.parent.msg.sender||"?")+": "+(n.parent.msg.text||"").slice(0,80));m.appendChild(pp)}
+    // the focused node is drawn as depth 0 so the subtree gets fresh indentation room
+    m.appendChild(nodeEl(n,0));return;
+  }
+  roots.forEach(function(r){m.appendChild(nodeEl(r,0))});
+}
+function renderPanel(){
+  var p=$("panel");if(p.hidden||!tree)return;p.innerHTML="";
+  function row(parent,text,btns){var r=el("div","row");r.appendChild(document.createTextNode(text+" "));btns.forEach(function(b){var a=el("a",null,b[0]);a.style.cssText="cursor:pointer;text-decoration:underline;margin-right:8px";a.onclick=b[1];r.appendChild(a)});parent.appendChild(r)}
+  var intro=el("div",null,"Links are your choice and sit on top of the reply tree; the original replies are unchanged. Nothing is deleted: unlinking archives, and Undo reverses the last change.");p.appendChild(intro);
+  var ub=el("button",null,"Undo last change");ub.onclick=function(){if(CabangOverlay.undo(ov))ovChange()};ub.style.marginTop="6px";p.appendChild(ub);
+  var gs=CabangOverlay.groups(tree,ov);p.appendChild(el("h3",null,"Merged topics ("+gs.length+")"));
+  gs.forEach(function(g){row(p,g.length+" topics together:",[]);g.forEach(function(n){row(p,"  - "+short(n.id),[["open",function(){focusId=n.id;render();scrollTo(0,0)}]])})});
+  var sg=CabangOverlay.suggest(tree,ov);p.appendChild(el("h3",null,"Suggestions (guessed from shared words, may be wrong)"));
+  if(!sg.length)p.appendChild(el("div",null,"None."));
+  sg.slice(0,8).forEach(function(s){row(p,short(s.a)+"  <->  "+short(s.b)+" [shared: "+s.shared.join(", ")+"]",[
+    ["link",function(){CabangOverlay.addLink(ov,s.a,s.b,"suggested");ovChange()}],
+    ["dismiss",function(){var l=CabangOverlay.addLink(ov,s.a,s.b,"suggested");CabangOverlay.dismiss(ov,l.id);ovChange()}]])});
+  var act=ov.links.filter(function(l){return l.status==="active"}),arc=ov.links.filter(function(l){return l.status==="archived"});
+  p.appendChild(el("h3",null,"Links ("+act.length+")"));
+  act.forEach(function(l){row(p,short(l.a)+"  <->  "+short(l.b)+(l.kind==="suggested"?" (from suggestion)":""),[["archive",function(){CabangOverlay.archive(ov,l.id);ovChange()}]])});
+  if(arc.length){p.appendChild(el("h3",null,"Archived links ("+arc.length+")"));
+    arc.forEach(function(l){row(p,short(l.a)+"  <->  "+short(l.b),[["restore",function(){CabangOverlay.restore(ov,l.id);ovChange()}]])})}
+}
+$("lic").onclick=function(){var p=$("panel"),N=window.CABANG_NOTICES;p.hidden=false;p.innerHTML="";
+  var c=el("button",null,"Close");c.onclick=function(){p.hidden=true;renderPanel()};p.appendChild(c);
+  p.appendChild(el("h3",null,"Third-party licenses"));
+  if(!N){p.appendChild(el("div",null,"Notices are not bundled in this build."));return}
+  p.appendChild(el("div",null,N.note));
+  N.items.forEach(function(i){var r=el("div","row");r.appendChild(el("b",null,i.name+" "+i.version+" - "+i.license));
+    r.appendChild(el("div","deep",i.where+". Source: "+i.source));
+    var t=el("pre",null,i.text);t.hidden=true;t.style.cssText="white-space:pre-wrap;font-size:11px;max-height:300px;overflow:auto";
+    var a=el("a",null,"show text");a.style.cssText="cursor:pointer;text-decoration:underline";a.onclick=function(){t.hidden=!t.hidden;a.textContent=t.hidden?"show text":"hide text"};
+    r.appendChild(a);r.appendChild(t);p.appendChild(r)})};
+$("topics").onclick=function(){var p=$("panel");p.hidden=!p.hidden;renderPanel()};
+function setAll(v){if(!tree)return;tree.nodes.forEach(function(n){if(n.children.length)collapsed[n.id]=v});render()}
+$("all").onclick=function(){setAll(true)};$("exp").onclick=function(){collapsed={};render()};
+$("group").onchange=function(){focusId=null;rebuild()};
+$("demo").onclick=function(){data=window.CABANG_SAMPLE;ovKey="demo";curKey=null;rebuild.fresh=true;collapsed={};focusId=null;rebuild()};
+$("file").onchange=function(e){var f=e.target.files[0];if(!f)return;if(f.size>((host&&host.maxPickBytes&&host.maxPickBytes())||20971520)){alert("File is too large for Cabang (limit 20 MB).");return}var r=new FileReader();r.onload=function(){try{data=JSON.parse(r.result);if(!data.messages)throw 0;ovKey=null;curKey=null;rebuild.fresh=true;collapsed={};focusId=null;rebuild()}catch(x){alert("This file is not a Cabang export (needs a messages list).")}};r.readAsText(f)};
+window.cabangLoad=function(s){snap=s;var sel=$("chatsel"),prev=sel.value;sel.innerHTML="";
+  if(s.error){$("stats").textContent="Could not read Delta Chat data: "+s.error;return}
+  var any=false;(s.accounts||[]).forEach(function(a){a.chats.forEach(function(c){any=true;var o=document.createElement("option");
+    o.value=a.id+":"+c.id;o.textContent=(a.configured?"":"[not set up] ")+c.name;sel.appendChild(o)})});
+  var configured=(s.accounts||[]).some(function(a){return a.configured});$("mk").hidden=!(host&&!configured);
+  if(!any){$("stats").textContent=configured?"No chats yet.":"No identity yet. Cabang has its own empty profile. Tap \"Create Cabang identity\" to make a new one.";return}
+  sel.hidden=false;
+  for(var i=0;i<sel.options.length;i++)if(sel.options[i].value===prev)sel.value=prev;   // keep the chat the person was in
+  pick()};
+$("bk").hidden=!host;
+// Backup: the system "save as" dialog lets the person pick the place. The code is shown once, here, and never saved.
+$("bk").onclick=function(){
+  if(!cur||!cur.configured){alert("Nothing to back up yet: this profile has no account set up.");return}
+  var code=host.backupPrepare(cur.account);if(!code){alert("Could not start the backup.");return}
+  var p=$("panel");p.hidden=false;p.innerHTML="";
+  p.appendChild(el("h2",null,"Back up this profile"));
+  p.appendChild(el("p",null,"Keys and messages go into one encrypted file. Write this code down first. It is made on this device, kept only in memory, and nobody can recover it. Without it the file cannot be opened."));
+  var c=el("p",null,code);c.style.cssText="font:700 22px monospace;letter-spacing:1px;user-select:none;-webkit-user-select:none";p.appendChild(c);
+  var go=el("button",null,"I wrote it down. Choose where to save");go.onclick=function(){go.disabled=true;$("bk").disabled=true;host.backupStart()};
+  var no=el("button",null,"Cancel");no.onclick=function(){host.backupCancel();p.hidden=true;p.innerHTML=""};
+  p.appendChild(go);p.appendChild(no)};
+window.cabangBackup=function(r){$("bk").disabled=false;if(r.cancelled){var q=$("panel");q.hidden=true;q.innerHTML="";return}
+  var p=$("panel");p.hidden=false;p.innerHTML="";
+  if(r.error){p.appendChild(el("h2",null,"Backup NOT confirmed"));p.appendChild(el("p",null,r.error));p.appendChild(el("p",null,"Do not rely on any file that was saved. It is your file: archive or delete it yourself when you choose (Cabang never deletes outside its own storage). Start again for a new code."));return}
+  p.appendChild(el("h2",null,"Backup saved and checked"));
+  p.appendChild(el("p",null,"The saved file was read back and matches ("+r.bytes+" bytes). It opens only with the code you wrote down."));
+  var x=el("button",null,"Done");x.onclick=function(){p.hidden=true;p.innerHTML=""};p.appendChild(x)};
+$("mk").onclick=function(){
+  if(!confirm("Create a NEW Cabang identity on nine.testrun.org?\n\nIt is made on this phone, with its own keys. Nothing is imported from your Delta Chat app and your existing account is not touched.\n\nThe relay operator processes the new address and the routing data of your messages (message contents are end-to-end encrypted). After this, Cabang connects to the relay by itself each time it starts. The relay says it removes messages after 20 days (its info page) but its privacy page says 4-8 weeks, and deleting an account on the relay is not guaranteed or done by this app. Use Back up afterwards so an uninstall does not lose the keys."))return;
+  $("mk").disabled=true;$("stats").textContent="Creating identity...";host.createIdentity()};
+window.cabangIdentity=function(r){$("mk").disabled=false;
+  if(r.error){$("stats").textContent="Could not create the identity: "+r.error;return}
+  $("stats").textContent="Identity created.";host.refresh()};
+window.cabangSent=function(r){
+  if(r.error){document.querySelectorAll("button[data-send]").forEach(function(b){b.disabled=false});alert("Not sent: "+r.error);return}   // text stays in the box
+  alert("Reply sent");if(host)host.refresh()};
+function pick(){var v=$("chatsel").value.split(":");var a=snap.accounts.filter(function(x){return String(x.id)===v[0]})[0];
+  var c=a.chats.filter(function(x){return String(x.id)===v[1]})[0];cur={account:a.id,chat:c.id,configured:a.configured};
+  $("stats").textContent="Loading messages...";host.loadChat(a.id,c.id,500)}
+// Messages of one chat arrive here. Same chat as before (after a send/refresh): keep collapse, focus and links.
+window.cabangChat=function(d){
+  if(d.error){$("stats").textContent="Could not read this chat: "+d.error;return}
+  var k=d.account+":"+d.chat,same=(k===curKey),scope=d.fp?("fp:"+d.fp):null;
+  curKey=k;data={messages:d.messages};
+  if(!same){collapsed={};focusId=null}
+  if(!same||scope!==ovKey){ovKey=scope;ovLoad()}
+  rebuild();
+  if(d.total>d.shown)$("stats").textContent+=" (showing the newest "+d.shown+" of "+d.total+")";
+  if(!scope)$("stats").textContent+=". Links are kept in memory only: this account has no stable identity yet."}
+$("chatsel").onchange=function(){curKey=null;pick()};
+render();if(host){$("stats").textContent="Reading Delta Chat core...";host.refresh()}
+if(location.search.indexOf("demo")>=0){if(location.search.indexOf("group")>=0)$("group").checked=true;$("demo").onclick()}
+</script></body></html>
