@@ -93,9 +93,9 @@ class SyntheticProfile(unittest.TestCase):
             self.assertFalse(s["accounts"][0]["configured"])
             self.assertNotIn("messages", s["accounts"][0]["chats"][0])   # list only, no bulk load
             self.assertIsNone(s["accounts"][0]["fp"] if not s["accounts"][0]["configured"] else None)
-            d = c.chat_data(rpc, a.id, s["accounts"][0]["chats"][0]["id"], limit=1)
-            self.assertEqual(d["shown"], 1); self.assertEqual(d["total"], 2)   # bounded, newest first kept
-            m = d["messages"][0]
+            cd = c.chat_data(rpc, a.id, s["accounts"][0]["chats"][0]["id"], limit=1)
+            self.assertEqual(cd["shown"], 1); self.assertEqual(cd["total"], 2)   # bounded, newest first kept
+            m = cd["messages"][0]
             self.assertEqual(m["text"], "synthetic two"); self.assertTrue(m["mid"])   # portable id present
             self.assertEqual(m["account"], str(a.id)); self.assertIsNone(m["quote"])
         finally:
