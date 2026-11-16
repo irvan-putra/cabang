@@ -7,6 +7,7 @@ import os, sys
 from PIL import Image, ImageDraw, ImageFont
 
 V = sys.argv[1]
+SIDECAR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon-version.txt")   # read by the signing workflow; must equal versionName
 OUT = "android/app/src/main/res"
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
@@ -31,3 +32,6 @@ def icon(sz):
 
 for name, sz in [("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)]:
     p = f"{OUT}/mipmap-{name}"; os.makedirs(p, exist_ok=True); icon(sz).save(p + "/ic_launcher.png")
+
+with open(SIDECAR, "w") as fh:
+    fh.write(V.lstrip("v") + "\n")
