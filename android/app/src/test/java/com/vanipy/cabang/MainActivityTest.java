@@ -21,6 +21,16 @@ import org.robolectric.annotation.Config;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 34)
 public class MainActivityTest {
+    @Test public void launcherLabelIsCabangWithoutVersion() throws Exception {
+        android.content.Context c = ApplicationProvider.getApplicationContext();
+        PackageManager pm = c.getPackageManager();
+        assertEquals("Cabang", pm.getApplicationLabel(c.getApplicationInfo()).toString());
+        android.content.Intent launcher = pm.getLaunchIntentForPackage(c.getPackageName());
+        assertNotNull(launcher);
+        assertEquals("Cabang", pm.resolveActivity(launcher, 0).loadLabel(pm).toString());
+        assertEquals("com.vanipy.cabang", c.getPackageName());
+    }
+
     @Test public void manifestRequestsOnlyInternet() throws Exception {
         android.content.Context c = ApplicationProvider.getApplicationContext();
         PackageInfo p = c.getPackageManager().getPackageInfo(c.getPackageName(), PackageManager.GET_PERMISSIONS);
