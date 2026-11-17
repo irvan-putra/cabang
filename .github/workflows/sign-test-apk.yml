@@ -78,7 +78,7 @@ jobs:
           code=$(sed -n "s/^ *versionCode \([0-9][0-9]*\)\$/\1/p" android/app/build.gradle)
           [[ $code =~ ^[1-9][0-9]{0,8}$ ]]
           grep -Fq "versionCode='${code}'" badging.txt
-          grep -Fq "application-label:'Cabang'" badging.txt
+          grep -Fq "application-label:'cabang'" badging.txt
           # Capture first: grep -q on a pipe can SIGPIPE the producer, and a negated pipeline is ignored by set -e.
           "$bt/aapt2" dump xmltree --file AndroidManifest.xml "$out" > manifest.txt
           if grep -qi debuggable manifest.txt; then echo "APK is debuggable"; exit 1; fi

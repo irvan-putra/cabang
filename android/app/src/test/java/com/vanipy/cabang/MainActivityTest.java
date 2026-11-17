@@ -21,13 +21,13 @@ import org.robolectric.annotation.Config;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 34)
 public class MainActivityTest {
-    @Test public void launcherLabelIsCabangWithoutVersion() throws Exception {
+    @Test public void launcherLabelIsLowercaseWithoutVersion() throws Exception {
         android.content.Context c = ApplicationProvider.getApplicationContext();
         PackageManager pm = c.getPackageManager();
-        assertEquals("Cabang", pm.getApplicationLabel(c.getApplicationInfo()).toString());
+        assertEquals("cabang", pm.getApplicationLabel(c.getApplicationInfo()).toString());
         android.content.Intent launcher = pm.getLaunchIntentForPackage(c.getPackageName());
         assertNotNull(launcher);
-        assertEquals("Cabang", pm.resolveActivity(launcher, 0).loadLabel(pm).toString());
+        assertEquals("cabang", pm.resolveActivity(launcher, 0).loadLabel(pm).toString());
         assertEquals("com.vanipy.cabang", c.getPackageName());
     }
 

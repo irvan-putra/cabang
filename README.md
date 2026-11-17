@@ -1,4 +1,4 @@
-# Cabang
+# cabang
 
 Threaded (indented, collapsible) view for Delta Chat conversations. Prototype.
 
@@ -14,12 +14,12 @@ The static browser view reads a chat export and shows reply branches like a foru
   text (`JustText`) or points outside the list gives no parent.
 - **Not a reply**: the `In-Reply-To` header / `parentId`. Delta Chat core fills it in with the last
   message of the chat when nothing is quoted (`src/chat.rs` in chatmail/core), so it records
-  "what came before", not a choice. Cabang ignores it by default.
+  "what came before", not a choice. cabang ignores it by default.
 - **Guess**: with "Guess branches" on, parentId and short time gaps group unquoted messages. These
   are drawn dashed and tagged "guess". Real quoted links are never replaced by guesses.
 - A quote of a message missing from the export is shown as top-level with a note, not invented.
 
-Message IDs in an export are local numbers of one account. Cabang does not match anything across
+Message IDs in an export are local numbers of one account. cabang does not match anything across
 devices.
 
 ## Reading on a phone
@@ -58,8 +58,8 @@ an account without a stable identity stay in memory only.
 Build: `sh tools/fetch_core.sh` (downloads the core, checks its sha256 against PyPI), then
 `cd android && gradle assembleDebug`. A debug build is signed with a throwaway key: test only.
 
-Cabang keeps its own accounts directory and does not read another app's data or import its profile.
-When there is no configured account, the app offers a button to create a new Cabang identity on
+cabang keeps its own accounts directory and does not read another app's data or import its profile.
+When there is no configured account, the app offers a button to create a new cabang identity on
 nine.testrun.org on this phone. After setup, the core connects to that relay on later starts. Existing
 Delta Chat accounts are not changed. This is not a live account-creation test or Android runtime proof.
 
