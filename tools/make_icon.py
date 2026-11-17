@@ -1,37 +1,136 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-only
-# Copyright (C) 2026 irvan-putra
-"""Draws the launcher icons with the version on the badge. Usage: make_icon.py v0.2.1
-Needs Pillow. Run from the repo root; keep the version equal to versionName in app/build.gradle."""
-import os, sys
-from PIL import Image, ImageDraw, ImageFont
+"""Launcher icon generator: one picture plus the shared version badge.
 
-V = sys.argv[1]
-SIDECAR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icon-version.txt")   # read by the signing workflow; must equal versionName
-OUT = "android/app/src/main/res"
-FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+Deterministic. Same version in, same PNGs out. Inputs are pinned: Pillow
+PILLOW_PIN and DejaVu Sans Bold with sha256 FONT_SHA256. The script fails
+instead of falling back to another font or Pillow version, because a
+different rasterizer or font changes the pixels.
+    pip install pillow==12.3.0   (fonts-dejavu-core provides the font)
+
+Badge: numbers only, a full-width strip across the bottom 24% of the icon.
+Picture safety: every picture pixel is checked to lie inside the circle that
+touches the icon edges (shrunk by a margin), so round launcher masks do not
+clip it; the version text is checked the same way.
+"""
+import hashlib, math, os, re, sys
+import PIL
+from PIL import Image, ImageChops, ImageDraw, ImageFont
+
+PILLOW_PIN = "12.3.0"
+FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+FONT_SHA256 = "d1c3ff99f1e1ce1827a33efd4dad81f40babda06bff9e43bd7591c86662a287b"
+DENSITIES = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
+S = 768
+STRIP_TOP = 0.76      # strip covers 76%..100% of the icon height
+TEXT_SIZE = 0.115     # numeral size, fraction of icon size
+SAFE_R = 0.485        # picture and text must stay inside this radius (fraction)
+
+if PIL.__version__ != PILLOW_PIN:
+    sys.exit("Pillow %s required, found %s" % (PILLOW_PIN, PIL.__version__))
 
 
-def icon(sz):
-    im = Image.new("RGBA", (sz, sz), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
-    d.rounded_rectangle([0, 0, sz - 1, sz - 1], radius=sz // 5, fill=(38, 50, 56, 255))
-    c, g, p = (255, 102, 0, 255), (42, 157, 143, 255), (123, 97, 255, 255)
-    w = max(3, sz // 24); x0 = sz * 0.3
-    d.line([(x0, sz * 0.18), (x0, sz * 0.62)], fill=c, width=w)
-    d.line([(x0, sz * 0.36), (sz * 0.62, sz * 0.36)], fill=g, width=w)
-    d.line([(x0, sz * 0.5), (sz * 0.74, sz * 0.5)], fill=p, width=w)
-    r = sz * 0.055
-    for x, y, col in [(x0, sz * 0.18, c), (sz * 0.62, sz * 0.36, g), (sz * 0.74, sz * 0.5, p), (x0, sz * 0.62, c)]:
+def font(px):
+    if not os.path.exists(FONT_PATH):
+        sys.exit("missing font " + FONT_PATH)
+    if hashlib.sha256(open(FONT_PATH, "rb").read()).hexdigest() != FONT_SHA256:
+        sys.exit("unexpected font file " + FONT_PATH)
+    return ImageFont.truetype(FONT_PATH, px)
+
+
+def circle_mask(size, r=SAFE_R):
+    m = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(m).ellipse([size * (.5 - r), size * (.5 - r), size * (.5 + r), size * (.5 + r)], fill=255)
+    return m
+
+
+def assert_inside_circle(layer, what, size=S, r=SAFE_R):
+    alpha = layer.getchannel("A").point(lambda v: 255 if v > 8 else 0)
+    outside = ImageChops.multiply(alpha, ImageChops.invert(circle_mask(size, r)))
+    box = outside.getbbox()
+    if box:
+        sys.exit("%s leaves the round-mask safe circle at %s" % (what, box))
+
+
+def new_layer(size=S):
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    return img, ImageDraw.Draw(img)
+
+
+def sparkle(d, cx, cy, r, fill, size=S):
+    pts = []
+    for i in range(96):
+        t = i * 2 * math.pi / 96
+        pts.append((cx * size + r * size * math.cos(t) ** 3, cy * size + r * size * math.sin(t) ** 3))
+    d.polygon(pts, fill=fill)
+
+
+def rrect(d, box, radius, fill, size=S):
+    d.rounded_rectangle([c * size for c in box], radius=radius * size, fill=fill)
+
+
+def compose(bg, art, version, strip, text, rounded=None, size=S, circle_check=True):
+    """Background, then the picture layer, then the badge strip."""
+    if circle_check:
+        assert_inside_circle(art, "picture", size)
+    base = Image.new("RGBA", (size, size), bg) if bg else Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    base.alpha_composite(art)
+    d = ImageDraw.Draw(base)
+    y0 = int(size * STRIP_TOP)
+    d.rectangle([0, y0, size, size], fill=strip)
+    tl, td = new_layer(size)
+    f = font(int(size * TEXT_SIZE))
+    td.text((size / 2, (y0 + size) / 2), version, font=f, fill=text, anchor="mm")
+    if circle_check:
+        assert_inside_circle(tl, "version text", size)
+    base.alpha_composite(tl)
+    if rounded:
+        m = Image.new("L", (size, size), 0)
+        ImageDraw.Draw(m).rounded_rectangle([0, 0, size - 1, size - 1], radius=rounded * size, fill=255)
+        base.putalpha(ImageChops.multiply(base.getchannel("A"), m))
+    return base
+
+
+def parse_version(argv, fallback=None):
+    v = argv[1] if len(argv) > 1 else fallback
+    if not v or not re.fullmatch(r"\d+\.\d+\.\d+", v):
+        sys.exit("version must be X.Y.Z")
+    return v
+
+
+def write_densities(img, res_dir, name="ic_launcher.png"):
+    for dens, px in DENSITIES.items():
+        out = os.path.join(res_dir, "mipmap-" + dens)
+        os.makedirs(out, exist_ok=True)
+        img.resize((px, px), Image.LANCZOS).save(os.path.join(out, name), optimize=True)
+
+
+def cabang(version):
+    BG = (38, 50, 56, 255)
+    C, G, P = (255, 102, 0, 255), (42, 157, 143, 255), (123, 97, 255, 255)
+    art, d = new_layer()
+    w = int(S * .045); x0 = S * .30
+    d.line([(x0, S * .18), (x0, S * .62)], fill=C, width=w)
+    d.line([(x0, S * .36), (S * .62, S * .36)], fill=G, width=w)
+    d.line([(x0, S * .50), (S * .74, S * .50)], fill=P, width=w)
+    r = S * .055
+    for x, y, col in [(x0, S * .18, C), (S * .62, S * .36, G), (S * .74, S * .50, P), (x0, S * .62, C)]:
         d.ellipse([x - r, y - r, x + r, y + r], fill=col)
-    f = ImageFont.truetype(FONT, int(sz * 0.17))
-    bw, bh = sz * 0.84, sz * 0.24; bx, by = (sz - bw) / 2, sz * 0.7
-    d.rounded_rectangle([bx, by, bx + bw, by + bh], radius=bh / 3, fill=(255, 255, 255, 255))
-    d.text(((sz - d.textlength(V, font=f)) / 2, by + bh * 0.12), V, fill=(20, 20, 20, 255), font=f)
-    return im
+    return compose(BG, art, version, (20, 28, 32, 255), (240, 244, 245, 255), rounded=.2)
 
 
-for name, sz in [("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)]:
-    p = f"{OUT}/mipmap-{name}"; os.makedirs(p, exist_ok=True); icon(sz).save(p + "/ic_launcher.png")
 
-with open(SIDECAR, "w") as fh:
-    fh.write(V.lstrip("v") + "\n")
+SIDECAR = "icon-version.txt"
+
+
+def main():
+    version = parse_version([sys.argv[0], sys.argv[1].lstrip("v")] if len(sys.argv) > 1 else sys.argv)
+    here = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.abspath(os.path.join(here, ".."))
+    write_densities(cabang(version), os.path.join(root, "android/app/src/main/res"))
+    with open(os.path.join(here, SIDECAR), "w") as fh:   # read by the signing workflow; must equal versionName
+        fh.write(version + "\n")
+    print("wrote icons for", version)
+
+
+if __name__ == "__main__":
+    main()
