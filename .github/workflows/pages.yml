@@ -1,0 +1,40 @@
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths: [index.html, threads.js, overlay.js, sample.js, android/app/src/main/assets/notices.js, .github/workflows/pages.yml]
+  workflow_dispatch:
+
+permissions:
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble site (copies of the static viewer, Android assets untouched)
+        run: |
+          mkdir -p _site
+          cp index.html threads.js overlay.js sample.js _site/
+          cp android/app/src/main/assets/notices.js _site/
+          python3 - <<'PY'
+          p='_site/index.html'
+          s=open(p,encoding='utf-8').read()
+          bar=('<div style="font:13px/1.5 system-ui,sans-serif;padding:10px 14px;margin:16px auto;max-width:720px;border-top:1px solid #8886;color:#666">'
+               'Cabang in the browser is the static export viewer: it reads a chat export you open here, in this browser only, and cannot send, connect or sync. '
+               'Sending and live Delta Chat need the <a href="https://github.com/irvan-putra/cabang/releases">Android app</a> (test build, not validated on a phone yet). '
+               '<a href="https://github.com/irvan-putra/cabang">Source</a> · <a href="https://vanipy.com/kaji/apk/">all apps</a></div>')
+          assert '</body>' in s
+          open(p,'w',encoding='utf-8').write(s.replace('</body>',bar+'</body>',1))
+          PY
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
