@@ -37,7 +37,7 @@ main{padding:6px 8px 60px}
 <header><h1>Cabang <span style="font-weight:400;color:var(--mute)">threaded view for Delta Chat</span></h1>
 <div class="bar">
 <label class="btn">Open export (stays on this device)<input id="file" type="file" accept=".json" hidden></label>
-<button id="demo">Demo data</button>
+<button id="demo">Demo data</button><button id="clr" hidden>Clear</button>
 <select id="chatsel" hidden></select>
 <label><input type="checkbox" id="group"> Guess branches (dashed)</label>
 <button id="topics">Topics &amp; links</button><button id="lic">Licenses</button><button id="bk" hidden>Back up</button><button id="mk" hidden>Create Cabang identity</button><button id="all">Collapse all</button><button id="exp">Expand all</button>
@@ -110,6 +110,7 @@ function nodeEl(n,depth,vis){
 function render(){
   var m=$("main");m.innerHTML="";
   if(linkFrom&&tree){var bn=el("div","banner","Linking from "+short(linkFrom)+". Tap \"link here\" on another message. ");var cc=el("a",null,"cancel");cc.style.cursor="pointer";cc.onclick=function(){linkFrom=null;render()};bn.appendChild(cc);m.appendChild(bn)}
+  if(data===window.CABANG_SAMPLE){var db=el("div","banner","Demo data: these conversations are synthetic, made to show the threaded view. Open an export to view your own chat, or Clear to empty this.");m.appendChild(db)}
   if(!tree){m.appendChild(el("div","empty","Open a Cabang export file, or try the demo data. Nothing is uploaded."));return}
   var roots=tree.roots;
   if(focusId&&tree.byId[focusId]){
@@ -156,8 +157,9 @@ $("topics").onclick=function(){var p=$("panel");p.hidden=!p.hidden;renderPanel()
 function setAll(v){if(!tree)return;tree.nodes.forEach(function(n){if(n.children.length)collapsed[n.id]=v});render()}
 $("all").onclick=function(){setAll(true)};$("exp").onclick=function(){collapsed={};render()};
 $("group").onchange=function(){focusId=null;rebuild()};
-$("demo").onclick=function(){data=window.CABANG_SAMPLE;ovKey="demo";curKey=null;rebuild.fresh=true;collapsed={};focusId=null;rebuild()};
-$("file").onchange=function(e){var f=e.target.files[0];if(!f)return;if(f.size>((host&&host.maxPickBytes&&host.maxPickBytes())||20971520)){alert("File is too large for Cabang (limit 20 MB).");return}var r=new FileReader();r.onload=function(){try{data=JSON.parse(r.result);if(!data.messages)throw 0;ovKey=null;curKey=null;rebuild.fresh=true;collapsed={};focusId=null;rebuild()}catch(x){alert("This file is not a Cabang export (needs a messages list).")}};r.readAsText(f)};
+$("demo").onclick=function(){data=window.CABANG_SAMPLE;ovKey="demo";curKey=null;rebuild.fresh=true;collapsed={};focusId=null;$("clr").hidden=false;rebuild()};
+$("clr").onclick=function(){data=null;tree=null;curKey=null;ovKey="demo";ovLoad();collapsed={};focusId=null;$("clr").hidden=true;$("stats").textContent="";render();renderPanel()};
+$("file").onchange=function(e){var f=e.target.files[0];if(!f)return;if(f.size>((host&&host.maxPickBytes&&host.maxPickBytes())||20971520)){alert("File is too large for Cabang (limit 20 MB).");return}var r=new FileReader();r.onload=function(){try{data=JSON.parse(r.result);if(!data.messages)throw 0;ovKey=null;curKey=null;rebuild.fresh=true;collapsed={};focusId=null;$("clr").hidden=false;rebuild()}catch(x){alert("This file is not a Cabang export (needs a messages list).")}};r.readAsText(f)};
 window.cabangLoad=function(s){snap=s;var sel=$("chatsel"),prev=sel.value;sel.innerHTML="";
   if(s.error){$("stats").textContent="Could not read Delta Chat data: "+s.error;return}
   var any=false;(s.accounts||[]).forEach(function(a){a.chats.forEach(function(c){any=true;var o=document.createElement("option");
@@ -208,6 +210,11 @@ window.cabangChat=function(d){
   if(d.total>d.shown)$("stats").textContent+=" (showing the newest "+d.shown+" of "+d.total+")";
   if(!scope)$("stats").textContent+=". Links are kept in memory only: this account has no stable identity yet."}
 $("chatsel").onchange=function(){curKey=null;pick()};
-render();if(host){$("stats").textContent="Reading Delta Chat core...";host.refresh()}
-if(location.search.indexOf("demo")>=0){if(location.search.indexOf("group")>=0)$("group").checked=true;$("demo").onclick()}
+// The static web view opens with synthetic demo data so the threaded view is visible right away;
+// "Open export" loads a real file instead, "Clear" empties it. Inside the Android app (host set),
+// no demo is loaded: the app reads the Delta Chat core.
+if(location.search.indexOf("group")>=0)$("group").checked=true;
+render();
+if(host){$("stats").textContent="Reading Delta Chat core...";host.refresh()}
+else $("demo").onclick()
 </script></body></html>

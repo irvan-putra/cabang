@@ -29,8 +29,9 @@ view (with a path back to the parent). Tap a guide line or `[-]` to collapse a b
 
 ## Use
 
-Open `index.html` through any static web server (or GitHub Pages), then "Demo data" or
-"Open export". Files are read in the browser only.
+Open `index.html` through any static web server (or GitHub Pages). It loads synthetic demo
+conversations by default so the threaded view is visible right away; "Open export" loads your own
+file instead and "Clear" empties the view. Files are read in the browser only.
 `export_chat.py` writes an export from a copy of your own profile (untested against a real
 account so far). Demo data is synthetic. `node test.mjs` and `node test_threading_fixture.mjs` run the tree tests (the second uses synthetic chats where only a real quote makes a branch).
 
