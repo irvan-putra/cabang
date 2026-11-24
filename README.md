@@ -69,3 +69,7 @@ Latest host checks: `node test.mjs` passed; Python unittest ran 10 tests, 0 skip
 `patches/cabang_setup.py` is an earlier prototype helper; current phone-side identity setup is wired in the Android app. The setup path and restart networking are not verified on an Android device.
 
 Not tested on a device or emulator, with a real relay account, or by sending a real message. Account creation, backup of a configured account, and restart/network behavior remain unverified.
+
+---
+
+Built with AI assistance (Instinct and others). Not everything has been reviewed by Irvan.
